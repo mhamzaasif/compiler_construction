@@ -6,4 +6,10 @@ struct Token
 	string lexeme;
 	string type;
 	int encode;
-}
+};
+
+struct Rule 
+{
+	int value;
+	int row;
+};

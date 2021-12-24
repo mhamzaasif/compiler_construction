@@ -1,10 +1,9 @@
 int
 float
-#define
-#include
-cin>>
-cout<<
-if
 while
+if
+else
 for
 do
+#define
+#include

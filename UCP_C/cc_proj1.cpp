@@ -1,1196 +1,487 @@
 /* Header files */
-
-#include<iostream>
-#include<string>
-#include<stdlib.h>
-#include<fstream>
 #include"token.h"
-
+#include"Lexer.h"
+#include"Stack.h"
 using namespace std;
-
+int static parse_error_count=0;
 
 /* Fuction Prototypes */
-void create_token(string,int);
-void hash_mapping(int arr[256]);
-void transition_table(int arr[32][32]);
-void lexical_anal(string,string,int,int);
-void read_keywords();
-bool is_keyword(string);
-
-void create_token();
+Token get_token(ifstream &);
 void init_parser();
-
-int state_table[32][32]={0};
-int mapping[256]={0};
-string keywords[10];
-
-
+void parse_engine(Stack <Rule>&stack,Token token);
+//void parse_engine(Stack <Rule>&stack, Token token, int &rule);
+int parse_table[28][47] = { 0 };
+int rule_book[55][10] = { 0 };
+void read_parse_table(int parse_table[28][47]);
+void read_rule_book(int rule_book[56][10]);
 int main()
 {
-	hash_mapping(mapping);
-	transition_table(state_table);
-	read_keywords();
+	cout << "Hello World" << endl;
+	init_lexer();
 	init_parser();
+	system("pause");
 	return 0;
 }
 
 
 void init_parser()
 {
-	//Token token = get_token();
-	
-}
-
-
-void create_token()
-{
+	read_parse_table(parse_table);
+	read_rule_book(rule_book);
 	ifstream inFile;
-	inFile.open("test.txt",ios::in);
-	if(!inFile.is_open())
-	{
-		exit(0);
-	}
-	string instruction;
-	/*int state = 1;
-	instruction lexeme = "";*/
-	while (!inFile.eof())
-	{
-		getline(inFile, instruction);
-		lexical_anal(instruction, "", 1, 0);
-	}
+	Token token;
+	Stack <Rule> stack;
+	Rule rule;
+	rule.value = 999;
 	
-}
-
-void hash_mapping(int arr[256])
-{
-	for (int i = 0;i < 255; i++)
+	stack.push(rule);
+	rule.value = -1;
+	rule.row = 1;
+	stack.push(rule);
+	inFile.open("token.txt", ios::in);
+	if (!inFile.is_open())
 	{
-		if(char(i) == '_')
-			arr[i] = 0;
-		if(char(i) >= 'a' && char(i) <= 'z')
-			arr[i] = 1;
-		if(char(i) >= 'A' && char(i) <= 'Z')
-			arr[i] = 1;
-		if(char(i) >= '0' && char(i) <= '9')
-			arr[i] = 2;
-		if(char(i) == '+')
-			arr[i] = 3;
-		if(char(i) == '-')
-			arr[i] = 4;
-		if(char(i) == '.')
-			arr[i] = 5;
-		if(char(i) == '*')
-			arr[i] = 6;
-		if(char(i) == '/')
-			arr[i] = 7;
-		if(char(i) == '=')
-			arr[i] = 8;
-		if(char(i) == '>')
-			arr[i] = 9;
-		if(char(i) == '<')
-			arr[i] = 10;
-		if(char(i) == '!')
-			arr[i] = 11;
-		if(char(i) == ':')
-			arr[i] = 12;
-		if(char(i) == '{')
-			arr[i] = 13;
-		if(char(i) == '}')
-			arr[i] = 14;
-		if(char(i) == '(')
-			arr[i] = 15;
-		if(char(i) == ')')
-			arr[i] = 16;
-		if(char(i) == '[')
-			arr[i] = 17;
-		if(char(i) == ']')
-			arr[i] = 18;
-		if(char(i) == '#')
-			arr[i] = 19;
-		if(char(i) == ' ')
-			arr[i] = 20;
-		if(char(i) == ';')
-			arr[i] = 21;
-		if(char(i) == '&')
-			arr[i] = 22;
-		if(char(i) == '|')
-			arr[i] = 23;
-		if(char(i) == '^')
-			arr[i] = 24;
-		if(char(i) == '$')
-			arr[i] = 25;
-		if(char(i) == '%')
-			arr[i] = 26;
-		if(char(i) == '@')
-			arr[i] = 27;
-		if(char(i) == '?')
-			arr[i] = 28;
-		if(char(i) == ',')
-			arr[i] = 29;
-		if(char(i) == '\\')
-			arr[i] = 30;
-		if(char(i) == '\t')
-			arr[i] = 31;
+		cout << "Failed to open token.txt" << endl;
+		exit(1);
 	}
-}
-
-
-void transition_table(int state_table[32][32])
-{
-	ifstream inFile;
-	inFile.open("table1.csv",ios::in);
-	if(!inFile.is_open())
+	else
 	{
-		exit(0);
-	}
-	int x;
-	for(int i=0;i<32;i++)
-	{
-		for(int j=0;j<32;j++)
+		int rule = -1;
+
+		while (!inFile.eof())
 		{
-			inFile>>x;
-			state_table[i][j]=x;
+			token = get_token(inFile);
+			if (compare(token.lexeme, "\n")||compare(token.lexeme,""))
+			{
+				break;
+			}
+			parse_engine(stack, token);
+			
+		}
+		cout << "After Execution::Stack Elements" << endl;
+		while (!stack.is_empty())
+		{
+			cout << stack.top().value << endl;
+			stack.pop();
+		}
+		inFile.close();
+	}
+}
+
+void parse_engine(Stack <Rule>&stack,Token token) 
+{
+	cout << "Token:" << token.lexeme << endl;
+	cout << "Stack:" << endl;
+	stack.print();
+	cout << "=================================" << endl;
+	cin.get();
+	if (stack.top().value == 999)
+	{
+		return;
+	}
+	if (stack.top().value == token.encode)
+	{
+		stack.pop();
+		return;
+	}
+	else if (stack.top().value == 777)
+	{
+		stack.pop();
+	}
+	else if (stack.top().value < 0)
+	{
+		if (parse_table[stack.top().value*-1][token.encode] == 777)
+		{
+			stack.pop();
+		}
+		else if (parse_table[stack.top().value*-1][token.encode]==888)
+		{
+			return;
+		}
+		else
+		{
+			Stack <Rule>stack1;
+			Rule rule;
+			rule.row = stack.top().value*-1;
+			for (int i = 0;; i++)
+			{
+				if (rule_book[parse_table[rule.row][token.encode]][i] != 999)
+				{
+					rule.value = rule_book[parse_table[rule.row][token.encode]][i];
+					stack1.push(rule);
+				}
+				else
+				{
+					break;
+				}
+			}
+			stack.pop();
+			while (!stack1.is_empty())
+			{
+				stack.push(stack1.top());
+				stack1.pop();
+			}
+		}
+	}
+	else
+	{
+		if (parse_table[stack.top().row][token.encode] == 777)
+		{
+			cout << "Skipping Rule :" << stack.top().value << endl;
+			stack.pop();
+		}
+		else if (parse_table[stack.top().row][token.encode] == 888)
+		{
+			cout << "Skipping Token :" << token.lexeme << endl;
+			return;
+		}
+		else
+		{
+			/*cout << parse_table[stack.top().row][token.encode] << endl;
+			cout << "Undefined Error" << endl;*/
+			/*Stack <Rule>stack1;
+			Rule rule;
+			rule.row = stack.top().row;
+			for (int i = 0;; i++)
+			{
+				if (rule_book[parse_table[rule.row][token.encode]][i] != 999)
+				{
+					rule.value = rule_book[parse_table[rule.row][token.encode]][i];
+					stack1.push(rule);
+				}
+				else
+				{
+					break;
+				}
+			}
+			stack.pop();
+			while (!stack1.is_empty())
+			{
+				stack.push(stack1.top());
+				stack1.pop();
+			}*/
+			cout << "Force Skipping ::" << endl;
+			return;
+		}
+	}
+
+
+	/*
+	if (stack.top().value < 0)
+	{
+		int row = stack.top().value*-1;
+		stack.pop();
+		Stack <Rule>stack1;
+		Rule rule;
+		rule.row = row;
+		if (parse_table[row][token.encode] == 888)
+		{
+			cout << "Skipping token:" << token.lexeme << endl;
+			lex_error_count++;
+			return;
+		}
+		else if (parse_table[row][token.encode] == 777)
+		{
+			stack.pop();
+		}
+		else
+		{
+			for (int i = 0;; i++)
+			{
+				if (rule_book[parse_table[row][token.encode]][i] != 999)
+				{
+					rule.value = rule_book[parse_table[row][token.encode]][i];
+					stack1.push(rule);
+				}
+				else
+					break;
+			}
+			for (int i = 0;; i++)
+			{
+				if (!stack1.is_empty())
+				{
+					stack.push(stack1.top());
+					stack1.pop();
+				}
+				else
+				{
+					break;
+				}
+			}
+		}
+	}
+	else
+	{
+		if (stack.top().value == token.encode)
+		{
+			stack.pop();
+			return;
+		}
+		else if (stack.top().value == 777)
+		{
+			stack.pop();
+		}
+		else
+		{
+			if (parse_table[stack.top().row][token.encode] == 777)
+			{
+				cout << "Stack Element:" << stack.top().value << endl;
+				cout << "Token:" << token.encode << endl;
+				cout << "Row:" << stack.top().row << endl;
+				stack.pop();
+				cout << "Token: " << token.lexeme << " is invalid" << endl;
+				parse_error_count++;
+			}
+			else if (parse_table[stack.top().row][token.encode] == 888)
+			{
+				cout << "Token: " << token.lexeme << " is skipped" << endl;
+				parse_error_count++;
+				return;
+			}
+			else
+			{
+				parse_error_count++;
+				cout << "Undefined Error" << endl;
+			}
+		}
+	}
+	*/
+	parse_engine(stack, token);
+	
+	/*if (stack.top().value == 777)
+	{
+		cout << "777" << endl;
+		stack.pop();
+	}
+	else if (stack.top().value == token.encode)
+	{
+		cout << "Stack.top():" << stack.top().value << " token.encode:" << token.encode << endl;
+		return;
+	}
+	else if (stack.top().value < 0)
+	{
+		rule = stack.top().value*-1;
+		stack.pop();
+		Stack <Rule>stack1;
+		for (int i = 0;; i++)
+		{
+			if (rule_book[parse_table[rule][token.encode]][i] != 999)
+				stack1.push(rule_book[parse_table[rule][token.encode]][i]);
+			else
+				break;
+		}
+		while (!stack1.is_empty())
+		{
+			stack.push(stack1.top());
+			stack1.pop();
+		}
+	}
+	else
+	{
+		if (token.encode == stack.top())
+		{
+			return;
+		}
+		else if(parse_table[rule][token.encode]==777)
+		{
+			stack.pop();
+		}
+		else
+		{
+			return;
+		}
+	}
+	parse_engine(stack, token, rule);*/
+	/*if (stack.top() < 0)
+	{
+ 		rule = parse_table[stack.top()*-1][token.encode];
+		if (rule == 888)
+		{
+			cout << "888" << endl;
+			return;
+		}
+		else if (rule == 777)
+		{
+			cout << "777" << endl;
+			stack.pop();
+		}
+		else
+		{
+			stack.pop();
+			Stack <int>stack1;
+			for (int i = 0;; i++)
+			{
+				if (rule_book[rule][i] != 999)
+					stack1.push(rule_book[rule][i]);
+				else
+					break;
+			}
+			while (!stack1.is_empty())
+			{
+				stack.push(stack1.top());
+				stack1.pop();
+			}
+		}
+	}
+	else
+	{
+		if (stack.top() == token.encode )
+		{
+			cout << "stack.top:" << stack.top() << " Token.encode:" << token.encode << endl;
+			stack.pop();
+			return;
+		} 
+		else if (stack.top() == 777)
+		{
+			stack.pop();
+		}
+		else
+		{
+			if (parse_table[rule][token.encode] == 777)
+			{
+				stack.pop();
+			}
+			else
+			{
+				return;
+			}
+		}
+	}
+	parse_engine(stack, token, rule);*/
+	/*if (stack.top == token.encode || stack.top == 777)
+	{
+		stack.pop();
+		return;
+	}
+	else
+	{
+		if (stack.top() < 0)
+		{
+			int row = stack.top()*-1;
+			int col = token.encode;
+			rule = parse_table[row][col];
+			stack.pop();
+			Stack<int> stack1;
+			for (int i = 0;; i++)
+			{
+				if (rule_book[rule][i] != 999)
+					stack1.push(rule_book[rule][j]);
+				else
+					break;
+			}
+			while (!stack1.is_empty())
+			{
+				stack.push(stack1.top());
+				stack1.pop();
+			}
+		}
+		else if (parse_table[rule][token.encode] == 777)
+		{
+			stack.pop();
+			return;
+		}
+		else
+		{
+			return;
+		}
+	}*/
+	/*Stack <int>stack1;
+	int row, col, rule = 0;
+	row = stack.top();
+	col = token.encode;
+	if (row < 0)
+	{
+		stack.pop();
+		row *= -1;
+		rule = parse_table[row][col];
+		for (int j = 0;; j++)
+		{
+			if (rule_book[rule][j] != 999)
+				stack1.push(rule_book[rule][j]);
+			else
+				break;
+		}
+		while (!stack1.is_empty())
+		{
+			stack.push(stack1.top());
+			stack.pop();
+		}
+	}
+	else
+	{
+		if (stack.top() == token.encode)
+		{
+			stack.pop();
+			return;
+		}
+	}
+	parse_engine(stack, token);*/
+}
+
+void read_parse_table(int parse_table[28][47])
+{
+	ifstream inFile;
+	inFile.open("parse_table.csv", ios::in);
+	if (!inFile.is_open())
+	{
+		cout << "Failed to Open parse_table.csv" << endl;
+		exit(0);
+	}
+	for (int i = 1; i <= 28; i++)
+	{
+		for (int j = 1; j <= 47; j++)
+		{
+
+			inFile >> parse_table[i][j];
 		}
 	}
 	inFile.close();
-	for(int i = 0;i<32;i++)
+	/*for (int i = 1; i <= 28; i++)
 	{
-		for(int j=0;j<32;j++)
+		for (int j = 1; j <= 47; j++)
 		{
-			cout<<state_table[i][j]<<" ";
+			cout << parse_table[i][j] << "\t";
 		}
-		cout<<endl;
-	}
-	cout<<int('\t')<<endl;
-	cout<<mapping[9]<<endl;
-	cin.get();
+		cout << endl;
+	}*/
+	
 }
 
-
-void lexical_anal(string instruction,string lexeme,int state,int i)
-{
-	if(instruction[i]=='\0')
-	{
-		create_token(lexeme,state);
-		return;
-	}
-	switch(state)
-	{
-		case 0:
-		//lexeme+=instruction[i];
-		state = state_table[state][mapping[int(instruction[i])]];
-		if(state != 0)
-		{
-			//create_token(lexeme,0);
-			lexeme += instruction[i];
-		}
-		lexical_anal(instruction,lexeme,state,i+1);
-		break;
-		case 1:
-		state = state_table[state][mapping[int(instruction[i])]];
-		if(state != 0)
-			lexeme+=instruction[i];
-		lexical_anal(instruction,lexeme,state,i+1);
-		break;
-		case 2:
-		state = state_table[state][mapping[int(instruction[i])]];
-		if(state == 1)
-		{
-			create_token(lexeme,2);
-			lexeme = "";
-			i--;
-		}
-		else if(state == 0)
-		{
-			create_token(lexeme,2);
-			lexeme = "";
-		}
-		else
-		{
-			lexeme+=instruction[i];
-		}
-		lexical_anal(instruction,lexeme,state,i+1);
-		break;
-		case 3:
-		state = state_table[state][mapping[int(instruction[i])]];
-		if(state == 1)
-		{
-			create_token(lexeme,3);
-			lexeme = "";
-			i--;
-		}
-		else if(state == 0)
-		{
-			create_token(lexeme,3);
-			lexeme = "";
-		}
-		else
-		{
-			lexeme+=instruction[i];
-		}
-		lexical_anal(instruction,lexeme,state,i+1);
-		break;
-		case 4:
-		state = state_table[state][mapping[int(instruction[i])]];
-		if(state == 1)
-		{
-			create_token(lexeme,4);
-			lexeme = "";
-			i--;
-		}
-		else if(state == 0)
-		{
-			create_token(lexeme,4);
-			lexeme="";
-		}
-		else
-		{
-			lexeme+=instruction[i];
-		}
-		lexical_anal(instruction,lexeme,state,i+1);
-		break;
-		case 5:
-		state = state_table[state][mapping[int(instruction[i])]];
-		if(state == 1)
-		{
-			create_token(lexeme,5);
-			lexeme = "";
-			i--;
-		}
-		else if(state == 0)
-		{
-			create_token(lexeme,5);
-			lexeme = "";
-		}
-		else
-		{
-			lexeme+=instruction[i];
-		}
-		lexical_anal(instruction,lexeme,state,i+1);
-		break;
-		case 6:
-		state = state_table[state][mapping[int(instruction[i])]];
-		if(state == 1)
-		{
-			create_token(lexeme,6);
-			lexeme = "";
-			i--;
-		}
-		else if(state == 0)
-		{
-			create_token(lexeme,6);
-			lexeme = "";
-		}
-		else
-		{
-			lexeme+=instruction[i];
-		}
-		lexical_anal(instruction,lexeme,state,i+1);
-		break;
-		case 7:
-		state = state_table[state][mapping[int(instruction[i])]];
-		if(state == 1)
-		{
-			create_token(lexeme,7);
-			lexeme = "";
-			i--;
-		}
-		else if(state == 0)
-		{
-			create_token(lexeme,7);
-			lexeme = "";
-		}
-		else
-		{
-			lexeme+=instruction[i];
-		}
-		lexical_anal(instruction,lexeme,state,i+1);
-		break;
-		case 8:
-		state = state_table[state][mapping[int(instruction[i])]];
-		if(state == 1)
-		{
-			create_token(lexeme,8);
-			lexeme = "";
-			i--;
-		}
-		else if(state == 0)
-		{
-			create_token(lexeme,8);
-			lexeme = "";
-		}
-		else
-		{
-			lexeme+=instruction[i];
-		}
-		lexical_anal(instruction,lexeme,state,i+1);
-		break;
-		case 9:
-		state = state_table[state][mapping[int(instruction[i])]];
-		if(state == 1)
-		{
-			create_token(lexeme,9);
-			lexeme = "";
-			i--;
-		}
-		else if(state == 0)
-		{
-			create_token(lexeme,9);
-			lexeme = "";
-		}
-		else
-		{
-			lexeme+=instruction[i];
-		}
-		lexical_anal(instruction,lexeme,state,i+1);
-		break;
-		case 10:
-		state = state_table[state][mapping[int(instruction[i])]];
-		if(state == 1)
-		{
-			create_token(lexeme,10);
-			lexeme = "";
-			i--;
-		}
-		else if(state == 0)
-		{
-			create_token(lexeme,10);
-			lexeme = "";
-		}
-		else
-		{
-			lexeme+=instruction[i];
-		}
-		lexical_anal(instruction,lexeme,state,i+1);
-		break;
-		case 11:
-		state = state_table[state][mapping[int(instruction[i])]];
-		if(state == 1)
-		{
-			create_token(lexeme,11);
-			lexeme = "";
-			i--;
-		}
-		else if(state == 0)
-		{
-			create_token(lexeme,11);
-			lexeme = "";
-		}
-		else
-		{
-			lexeme+=instruction[i];
-		}
-		lexical_anal(instruction,lexeme,state,i+1);
-		break;
-		case 12:
-		state = state_table[state][mapping[int(instruction[i])]];
-		if(state == 1)
-		{
-			create_token(lexeme,12);
-			lexeme = "";
-			i--;
-		}
-		else if(state == 0)
-		{
-			create_token(lexeme,12);
-			lexeme = "";
-		}
-		else
-		{
-			lexeme+=instruction[i];
-		}
-		lexical_anal(instruction,lexeme,state,i+1);
-		break;
-		case 13:
-		state = state_table[state][mapping[int(instruction[i])]];
-		if(state == 1)
-		{
-			create_token(lexeme,13);
-			lexeme = "";
-			i--;
-		}
-		else if(state == 0)
-		{
-			create_token(lexeme,13);
-			lexeme = "";
-		}
-		else
-		{
-			lexeme+=instruction[i];
-		}
-		lexical_anal(instruction,lexeme,state,i+1);
-		break;
-		case 14:
-		state = state_table[state][mapping[int(instruction[i])]];
-		if(state == 1)
-		{
-			create_token(lexeme,14);
-			lexeme = "";
-			i--;
-		}
-		else if(state == 0)
-		{
-			create_token(lexeme,14);
-			lexeme = "";
-		}
-		else
-		{
-			lexeme+=instruction[i];
-		}
-		lexical_anal(instruction,lexeme,state,i+1);
-		break;
-		case 15:
-		state = state_table[state][mapping[int(instruction[i])]];
-		if(state == 1)
-		{
-			create_token(lexeme,15);
-			lexeme = "";
-			i--;
-		}
-		else if(state == 0)
-		{
-			create_token(lexeme,15);
-			lexeme = "";
-		}
-		else
-		{
-			lexeme+=instruction[i];
-		}
-		lexical_anal(instruction,lexeme,state,i+1);
-		break;
-		case 16:
-		state = state_table[state][mapping[int(instruction[i])]];
-		if(state == 1)
-		{
-			create_token(lexeme,16);
-			lexeme = "";
-			i--;
-		}
-		else if(state == 0)
-		{
-			create_token(lexeme,16);
-			lexeme = "";
-		}
-		else
-		{
-			lexeme+=instruction[i];
-		}
-		lexical_anal(instruction,lexeme,state,i+1);
-		break;
-		case 17:
-		state = state_table[state][mapping[int(instruction[i])]];
-		if(state == 1)
-		{
-			create_token(lexeme,17);
-			lexeme = "";
-			i--;
-		}
-		else if(state == 0)
-		{
-			create_token(lexeme,17);
-			lexeme = "";
-		}
-		else
-		{
-			lexeme+=instruction[i];
-		}
-		lexical_anal(instruction,lexeme,state,i+1);
-		break;
-		case 18:
-		state = state_table[state][mapping[int(instruction[i])]];
-		if(state == 1)
-		{
-			create_token(lexeme,18);
-			lexeme = "";
-			i--;
-		}
-		else if(state == 0)
-		{
-			create_token(lexeme,18);
-			lexeme = "";
-		}
-		else
-		{
-			lexeme+=instruction[i];
-		}
-		lexical_anal(instruction,lexeme,state,i+1);
-		break;
-		case 19:
-		state = state_table[state][mapping[int(instruction[i])]];
-		if(state == 1)
-		{
-			create_token(lexeme,19);
-			lexeme = "";
-			i--;
-		}
-		else if(state == 0)
-		{
-			create_token(lexeme,19);
-			lexeme = "";
-		}
-		else
-		{
-			lexeme+=instruction[i];
-		}
-		lexical_anal(instruction,lexeme,state,i+1);
-		break;
-		case 20:
-		state = state_table[state][mapping[int(instruction[i])]];
-		if(state == 1)
-		{
-			create_token(lexeme,20);
-			lexeme = "";
-			i--;
-		}
-		else if(state == 0)
-		{
-			create_token(lexeme,20);
-			lexeme = "";
-		}
-		else
-		{
-			lexeme+=instruction[i];
-		}
-		lexical_anal(instruction,lexeme,state,i+1);
-		break;
-		case 21:
-		state = state_table[state][mapping[int(instruction[i])]];
-		if(state == 1)
-		{
-			create_token(lexeme,21);
-			lexeme = "";
-			i--;
-		}
-		else if(state == 0)
-		{
-			create_token(lexeme,21);
-			lexeme = "";
-		}
-		else
-		{
-			lexeme+=instruction[i];
-		}
-		lexical_anal(instruction,lexeme,state,i+1);
-		break;
-		case 22:
-		state = state_table[state][mapping[int(instruction[i])]];
-		if(state == 1)
-		{
-			create_token(lexeme,22);
-			lexeme = "";
-			i--;
-		}
-		else if(state == 0)
-		{
-			create_token(lexeme,22);
-			lexeme = "";
-		}
-		else
-		{
-			lexeme+=instruction[i];
-		}
-		lexical_anal(instruction,lexeme,state,i+1);
-		break;
-		case 23:
-		state = state_table[state][mapping[int(instruction[i])]];
-		if(state == 1)
-		{
-			create_token(lexeme,23);
-			lexeme = "";
-			i--;
-		}
-		else if(state == 0)
-		{
-			create_token(lexeme,23);
-			lexeme = "";
-		}
-		else
-		{
-			lexeme+=instruction[i];
-		}
-		lexical_anal(instruction,lexeme,state,i+1);
-		break;
-		case 24:
-		state = state_table[state][mapping[int(instruction[i])]];
-		if(state == 1)
-		{
-			create_token(lexeme,24);
-			lexeme = "";
-			i--;
-		}
-		else if(state == 0)
-		{
-			create_token(lexeme,24);
-			lexeme = "";
-		}
-		else
-		{
-			lexeme+=instruction[i];
-		}
-		lexical_anal(instruction,lexeme,state,i+1);
-		break;
-		case 25:
-		state = state_table[state][mapping[int(instruction[i])]];
-		if(state == 1)
-		{
-			create_token(lexeme,25);
-			lexeme = "";
-			i--;
-		}
-		else if(state == 0)
-		{
-			create_token(lexeme,25);
-			lexeme = "";
-		}
-		else
-		{
-			lexeme+=instruction[i];
-		}
-		lexical_anal(instruction,lexeme,state,i+1);
-		break;
-		case 26:
-		state = state_table[state][mapping[int(instruction[i])]];
-		if(state == 1)
-		{
-			create_token(lexeme,26);
-			lexeme = "";
-			i--;
-		}
-		else if(state == 0)
-		{
-			create_token(lexeme,26);
-			lexeme = "";
-		}
-		else
-		{
-			lexeme+=instruction[i];
-		}
-		lexical_anal(instruction,lexeme,state,i+1);
-		break;
-		case 27:
-		state = state_table[state][mapping[int(instruction[i])]];
-		if(state == 1)
-		{
-			create_token(lexeme,27);
-			lexeme = "";
-			i--;
-		}
-		else if(state == 0)
-		{
-			create_token(lexeme,27);
-			lexeme = "";
-		}
-		else
-		{
-			lexeme+=instruction[i];
-		}
-		lexical_anal(instruction,lexeme,state,i+1);
-		break;
-		case 28:
-		state = state_table[state][mapping[int(instruction[i])]];
-		if(state == 1)
-		{
-			create_token(lexeme,27);
-			lexeme = "";
-			i--;
-		}
-		else if(state == 0)
-		{
-			create_token(lexeme,27);
-			lexeme = "";
-		}
-		else
-		{
-			lexeme+=instruction[i];
-		}
-		lexical_anal(instruction,lexeme,state,i+1);
-		break;
-		case 29:
-		state = state_table[state][mapping[int(instruction[i])]];
-		if(state == 1)
-		{
-			create_token(lexeme,29);
-			lexeme = "";
-			i--;
-		}
-		else if(state == 0)
-		{
-			create_token(lexeme,29);
-			lexeme = "";
-		}
-		else
-		{
-			lexeme+=instruction[i];
-		}
-		lexical_anal(instruction,lexeme,state,i+1);
-		break;
-		case 30:
-		state = state_table[state][mapping[int(instruction[i])]];
-		if(state == 1)
-		{
-			create_token(lexeme,30);
-			lexeme="";
-			i--;
-		}
-		else if(state == 0)
-		{
-			create_token(lexeme,30);
-			lexeme = "";
-		}
-		else
-		{
-			lexeme+=instruction[i];
-		}
-		lexical_anal(instruction,lexeme,state,i+1);
-		break;
-	}
-}
-
-void create_token(string lexeme,int state)
-{
-	if(state == 3)
-	{
-		ofstream outFile;
-		outFile.open("token.txt",ios::app);
-		if(!outFile.is_open())
-		{
-			cout<<"Error to open token.txt"<<endl;
-			return;
-		}
-		else
-		{
-			outFile<<"<"<<lexeme<<",Identifier>"<<endl;
-			outFile.close();
-		}
-	}
-	else if(state == 4)
-	{
-		ofstream outFile;
-		outFile.open("token.txt",ios::app);
-		if(!outFile.is_open())
-		{
-			cout<<"Error to open token.txt"<<endl;
-			return;
-		}
-		else
-		{
-			outFile<<"<"<<lexeme<<",Operator>"<<endl;
-			outFile.close();
-		}
-	}
-	else if(state == 5)
-	{
-		ofstream outFile;
-		outFile.open("token.txt",ios::app);
-		if(!outFile.is_open())
-		{
-			cout<<"Error to open token.txt"<<endl;
-			return;
-		}
-		else
-		{
-			outFile<<"<"<<lexeme<<",Number>"<<endl;
-			outFile.close();
-		}
-	}
-	else if(state == 7)
-	{
-		ofstream outFile;
-		outFile.open("token.txt",ios::app);
-		if(!outFile.is_open())
-		{
-			cout<<"Error to open token.txt"<<endl;
-			return;
-		}
-		else
-		{
-			outFile<<"<"<<lexeme<<",Number>"<<endl;
-			outFile.close();
-		}
-	}
-	else if(state == 8)
-	{
-		ofstream outFile;
-		outFile.open("token.txt",ios::app);
-		if(!outFile.is_open())
-		{
-			cout<<"Error to open token.txt"<<endl;
-			return;
-		}
-		else
-		{
-			outFile<<"<"<<lexeme<<",Operator>"<<endl;
-			outFile.close();
-		}
-	}
-	else if(state == 9)
-	{
-		ofstream outFile;
-		outFile.open("token.txt",ios::app);
-		if(!outFile.is_open())
-		{
-			cout<<"Error to open token.txt"<<endl;
-			return;
-		}
-		else
-		{
-			outFile<<"<"<<lexeme<<",Operator>"<<endl;
-			outFile.close();
-		}
-	}
-	else if(state == 10)
-	{
-		ofstream outFile;
-		outFile.open("token.txt",ios::app);
-		if(!outFile.is_open())
-		{
-			cout<<"Error to open token.txt"<<endl;
-			return;
-		}
-		else
-		{
-			outFile<<"<"<<lexeme<<",Operator>"<<endl;
-			outFile.close();
-		}
-	}
-	else if(state == 11)
-	{
-		ofstream outFile;
-		outFile.open("token.txt",ios::app);
-		if(!outFile.is_open())
-		{
-			cout<<"Error to open token.txt"<<endl;
-			return;
-		}
-		else
-		{
-			outFile<<"<"<<lexeme<<",Operator>"<<endl;
-			outFile.close();
-		}
-	}
-	else if(state == 12)
-	{
-		ofstream outFile;
-		outFile.open("token.txt",ios::app);
-		if(!outFile.is_open())
-		{
-			cout<<"Error to open token.txt"<<endl;
-			return;
-		}
-		else
-		{
-			outFile<<"<"<<lexeme<<",Operator>"<<endl;
-			outFile.close();
-		}
-	}
-	else if(state == 13)
-	{
-		/* Srearch for Keywords */
-		string type = "";
-		if(is_keyword(lexeme))
-		{
-			type = "Keyword";
-		}
-		else if(lexeme[0] == '<')
-		{
-			type = "Operator";
-		}
-		else
-		{
-			type = "invalid Token";
-		}
-		ofstream outFile;
-		outFile.open("token.txt",ios::app);
-		if(!outFile.is_open())
-		{
-			cout<<"Error to open token.txt"<<endl;
-			return;
-		}
-		else
-		{
-			outFile<<"<"<<lexeme<<","<<type<<">"<<endl;
-			outFile.close();
-		}
-	}
-	else if(state == 14)
-	{
-		ofstream outFile;
-		outFile.open("token.txt",ios::app);
-		if(!outFile.is_open())
-		{
-			cout<<"Error to open token.txt"<<endl;
-			return;
-		}
-		else
-		{
-			outFile<<"<"<<lexeme<<",Operator>"<<endl;
-			outFile.close();
-		}
-	}
-	else if(state == 15)
-	{
-		ofstream outFile;
-		outFile.open("token.txt",ios::app);
-		if(!outFile.is_open())
-		{
-			cout<<"Error to open token.txt"<<endl;
-			return;
-		}
-		else
-		{
-			outFile<<"<"<<lexeme<<",Operator>"<<endl;
-			outFile.close();
-		}
-	}
-	else if(state == 17)
-	{
-		/*Search for keywords*/
-		string type = "";
-		if(is_keyword(lexeme))
-		{
-			type = "Keyword";
-		}
-		else if(lexeme[0] = '<')
-			type = "invalid token";
-		else
-		{
-			type = "Operator";
-		}
-		ofstream outFile;
-		outFile.open("token.txt",ios::app);
-		if(!outFile.is_open())
-		{
-			cout<<"Error to open token.txt"<<endl;
-			return;
-		}
-		else
-		{
-			outFile<<"<"<<lexeme<<","<<type<<">"<<endl;
-			outFile.close();
-		}
-	}
-	else if(state == 19)
-	{
-		ofstream outFile;
-		outFile.open("token.txt",ios::app);
-		if(!outFile.is_open())
-		{
-			cout<<"Error to open token.txt"<<endl;
-			return;
-		}
-		else
-		{
-			outFile<<"<"<<lexeme<<",Operator>"<<endl;
-			outFile.close();
-		}
-	}
-	else if(state == 22)
-	{
-		ofstream outFile;
-		outFile.open("token.txt",ios::app);
-		if(!outFile.is_open())
-		{
-			cout<<"Error to open token.txt"<<endl;
-			return;
-		}
-		else
-		{
-			outFile<<"<"<<lexeme<<",Operator>"<<endl;
-			outFile.close();
-		}
-	}
-	else if(state == 23)
-	{
-		ofstream outFile;
-		outFile.open("token.txt",ios::app);
-		if(!outFile.is_open())
-		{
-			cout<<"Error to open token.txt"<<endl;
-			return;
-		}
-		else
-		{
-			outFile<<"<"<<lexeme<<",{>"<<endl;
-			outFile.close();
-		}
-	}
-	else if(state == 24)
-	{
-		ofstream outFile;
-		outFile.open("token.txt",ios::app);
-		if(!outFile.is_open())
-		{
-			cout<<"Error to open token.txt"<<endl;
-			return;
-		}
-		else
-		{
-			outFile<<"<"<<lexeme<<",}>"<<endl;
-			outFile.close();
-		}
-	}
-	else if(state == 25)
-	{
-		ofstream outFile;
-		outFile.open("token.txt",ios::app);
-		if(!outFile.is_open())
-		{
-			cout<<"Error to open token.txt"<<endl;
-			return;
-		}
-		else
-		{
-			outFile<<"<"<<lexeme<<",(>"<<endl;
-			outFile.close();
-		}
-	}
-	else if(state == 26)
-	{
-		ofstream outFile;
-		outFile.open("token.txt",ios::app);
-		if(!outFile.is_open())
-		{
-			cout<<"Error to open token.txt"<<endl;
-			return;
-		}
-		else
-		{
-			outFile<<"<"<<lexeme<<",)>"<<endl;
-			outFile.close();
-		}
-	}
-	else if(state == 27)
-	{
-		ofstream outFile;
-		outFile.open("token.txt",ios::app);
-		if(!outFile.is_open())
-		{
-			cout<<"Error to open token.txt"<<endl;
-			return;
-		}
-		else
-		{
-			outFile<<"<"<<lexeme<<",]>"<<endl;
-			outFile.close();
-		}
-	}
-	else if(state == 28)
-	{
-		ofstream outFile;
-		outFile.open("token.txt",ios::app);
-		if(!outFile.is_open())
-		{
-			cout<<"Error to open token.txt"<<endl;
-			return;
-		}
-		else
-		{
-			outFile<<"<"<<lexeme<<",[>"<<endl;
-			outFile.close();
-		}
-	}
-	else if(state == 29)
-	{
-		/*Search for keyword*/
-		if(is_keyword(lexeme))
-		{
-			ofstream outFile;
-			outFile.open("token.txt",ios::app);
-			if(!outFile.is_open())
-			{
-				cout<<"Error to open token.txt"<<endl;
-				return;
-			}
-			else
-			{
-				outFile<<"<"<<lexeme<<",Keyword>"<<endl;
-				outFile.close();
-			}
-		}
-		else
-		{
-			ofstream outFile;
-			outFile.open("error.txt",ios::app);
-			if(!outFile.is_open())
-			{
-				cout<<"Error to open token.txt"<<endl;
-				return;
-			}
-			else
-			{
-				outFile<<"<"<<lexeme<<",Invalid Token>"<<endl;
-				outFile.close();
-			}
-		}
-	}
-	else
-	{
-		ofstream outFile;
-		outFile.open("error.txt",ios::app);
-		if(!outFile.is_open())
-		{
-			cout<<"Error to open token.txt"<<endl;
-			return;
-		}
-		else
-		{
-			outFile<<"<"<<lexeme<<",Invalid Token>"<<endl;
-			outFile.close();
-		}
-	}
-}
-
-
-void read_keywords()
+void read_rule_book(int rule_book[56][10])
 {
 	ifstream inFile;
-	inFile.open("keywords",ios::in);
-	if(!inFile.is_open())
+	inFile.open("rule_table.csv", ios::in);
+	if (!inFile.is_open())
 	{
-		cout<<"Failed To read keywords"<<endl;
-		return;
+		cout << "Failed to open rule_book.csv" << endl;
+		exit(1);
 	}
-	else
+	for (int i = 1; i <= 55; i++)
 	{
-		int i=0;
-		while(!inFile.eof())
+		for (int j = 0; j < 10; j++)
 		{
-			getline(inFile,keywords[i]);
-			i++;
+			inFile >> rule_book[i][j];
+			if (rule_book[i][j] == 999)
+				break;
 		}
 	}
+	/*
+	for (int i = 0; i <= 55; i++)
+	{
+		for (int j = 0; j < 10; j++)
+		{
+			cout << rule_book[i][j] << "\t";
+		}
+		cout << endl;
+	}
+	*/
 }
 
-bool compare(string a, string b)
+Token get_token(ifstream &inFile)
 {
-	int i=0;
-	while(a[i]!='\0' && b[i]!='\0')
-	{
-		if(a[i]!=b[i])
-		{
-			break;
-		}
-		i++;
-	}
-	if(a[i]=='\0' && b[i]=='\0')
-	{
-		return true;
-	}
-	else
-	{
-		return false;
-	}
-}
-
-bool is_keyword(string a)
-{
-	for(int i = 0; i < 10; i++)
-	{
-		cout<<"Checking:: "<<keywords[i]<<endl;
-		if(compare(a,keywords[i]))
-		{
-			return true;
-		}
-	}
-	return false;
+	Token token;
+	inFile >> token.lexeme;
+	inFile >> token.type;
+	inFile >> token.encode;
+	return token;
 }
